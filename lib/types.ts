@@ -60,3 +60,42 @@ export interface DashboardStats {
   membersNotRenewed: number // Última membresía vencida (excluye sin membresía histórica)
   enrollmentsByMonth: { month: string; count: number }[]
 }
+
+// ---- API Response Typings ----
+export interface MembersListItem extends Omit<Member, 'memberships'> {
+  memberships: UserMembership[] // sólo última (optimización) pero se mantiene como array
+  latestMembership?: UserMembership | null
+  status: NonNullable<Member['status']>
+}
+
+export interface MembersListResponse {
+  members: MembersListItem[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export interface CreateMemberResponse {
+  member: Member
+  membership: UserMembership & { membershipType: MembershipType }
+}
+
+export interface MembershipTypesStats {
+  total: number
+  active: number
+  inactive: number
+  avgPrice: number
+  minPrice: number
+  maxPrice: number
+}
+
+export interface MembershipTypesListResponse {
+  items: (MembershipType & { _count?: { userMemberships: number } })[]
+  stats: MembershipTypesStats
+}
+
+export interface ApiError {
+  error: string
+  details?: Array<{ path: (string | number)[]; message: string; code: string }>
+}

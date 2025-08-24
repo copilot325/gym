@@ -14,7 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, ArrowLeft, User, Phone, Calendar, RefreshCw } from "lucide-react"
+import { Loader2, ArrowLeft, User, Phone, Calendar, RefreshCw, Pencil, Trash2, Save } from "lucide-react"
 import { toast } from "sonner"
 
 // Schema de validación para renovación
@@ -41,6 +41,10 @@ export default function MemberProfilePage({ params }: { params: { id: string } }
   const [member, setMember] = useState<Member | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRenewing, setIsRenewing] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', age: '', phone: '' })
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
@@ -164,6 +168,77 @@ export default function MemberProfilePage({ params }: { params: { id: string } }
     return daysUntilExpiration <= 7 && daysUntilExpiration > 0
   }
 
+  // Toggle edit mode and preload form
+  const startEdit = () => {
+    if (!member) return
+    setEditForm({
+      firstName: member.firstName,
+      lastName: member.lastName,
+      age: String(member.age),
+      phone: member.phone,
+    })
+    setIsEditing(true)
+  }
+
+  const saveEdit = async () => {
+    if (!member) return
+    setIsSavingEdit(true)
+    try {
+      // Basic validation client-side
+      if (!editForm.firstName.trim() || !editForm.lastName.trim()) throw new Error('Nombre y apellido requeridos')
+      const ageNum = Number(editForm.age)
+      if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) throw new Error('Edad inválida (1-120)')
+      if (!/^\d{8}$/.test(editForm.phone)) throw new Error('Teléfono debe tener 8 dígitos')
+
+      const payload: any = {}
+      if (editForm.firstName !== member.firstName) payload.firstName = editForm.firstName.trim()
+      if (editForm.lastName !== member.lastName) payload.lastName = editForm.lastName.trim()
+      if (ageNum !== member.age) payload.age = ageNum
+      if (editForm.phone !== member.phone) payload.phone = editForm.phone
+      if (Object.keys(payload).length === 0) {
+        toast.info('Sin cambios para guardar')
+        setIsEditing(false)
+        return
+      }
+      const res = await fetch(`/api/members/${member.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      if (!res.ok) {
+        const er = await res.json().catch(()=>({}))
+        throw new Error(er.error || 'Error guardando cambios')
+      }
+      const updated = await res.json()
+      setMember((prev) => prev ? { ...prev, ...updated } : prev)
+      toast.success('Miembro actualizado')
+      setIsEditing(false)
+    } catch (e: any) {
+      toast.error(e.message || 'Error actualizando')
+    } finally {
+      setIsSavingEdit(false)
+    }
+  }
+
+  const cancelEdit = () => {
+    setIsEditing(false)
+  }
+
+  const deleteMember = async () => {
+    if (!member) return
+    if (!confirm('¿Eliminar este miembro? Esta acción es irreversible y eliminará su historial.')) return
+    setDeleteLoading(true)
+    try {
+      const res = await fetch(`/api/members/${member.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const er = await res.json().catch(()=>({}))
+        throw new Error(er.error || 'Error eliminando miembro')
+      }
+      toast.success('Miembro eliminado')
+      router.push('/members')
+    } catch (e: any) {
+      toast.error(e.message || 'Error eliminando')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   if (!isAuthenticated || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -201,13 +276,41 @@ export default function MemberProfilePage({ params }: { params: { id: string } }
           <ArrowLeft className="h-4 w-4 mr-2" />
           Volver
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold">
-            {member.firstName} {member.lastName}
-          </h1>
-          <p className="text-muted-foreground">
-            Perfil del miembro
-          </p>
+        <div className="flex-1">
+          {isEditing ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+              <Input value={editForm.firstName} onChange={e=>setEditForm(f=>({...f, firstName: e.target.value}))} placeholder="Nombres" />
+              <Input value={editForm.lastName} onChange={e=>setEditForm(f=>({...f, lastName: e.target.value}))} placeholder="Apellidos" />
+              <Input type="number" value={editForm.age} onChange={e=>setEditForm(f=>({...f, age: e.target.value}))} placeholder="Edad" />
+              <Input value={editForm.phone} onChange={e=>setEditForm(f=>({...f, phone: e.target.value.replace(/[^0-9]/g,'')}))} maxLength={8} placeholder="Teléfono" />
+            </div>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold">{member.firstName} {member.lastName}</h1>
+              <p className="text-muted-foreground">Perfil del miembro</p>
+            </>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {isEditing ? (
+            <>
+              <Button variant="outline" size="sm" onClick={cancelEdit} disabled={isSavingEdit}>Cancelar</Button>
+              <Button size="sm" onClick={saveEdit} disabled={isSavingEdit}>
+                {isSavingEdit && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                <Save className="h-4 w-4 mr-1" /> Guardar
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" size="sm" onClick={startEdit}>
+                <Pencil className="h-4 w-4 mr-1" /> Editar
+              </Button>
+              <Button variant="destructive" size="sm" onClick={deleteMember} disabled={deleteLoading}>
+                {deleteLoading && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                <Trash2 className="h-4 w-4 mr-1" /> Eliminar
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -221,10 +324,10 @@ export default function MemberProfilePage({ params }: { params: { id: string } }
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Nombres</p>
-                <p className="font-medium">{member.firstName}</p>
+        <p className="font-medium">{member.firstName}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Apellidos</p>

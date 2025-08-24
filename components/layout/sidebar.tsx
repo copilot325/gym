@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, LogOut, Menu, Dumbbell } from "lucide-react"
+import { LayoutDashboard, Users, LogOut, Menu, Dumbbell, UserPlus, CreditCard } from "lucide-react"
 import { signOut } from "@/lib/auth-client"
 
 const navigation = [
@@ -16,9 +16,19 @@ const navigation = [
     icon: LayoutDashboard,
   },
   {
-    name: "Registrar Nuevo Miembro",
-    href: "/members/new",
+    name: "Miembros",
+    href: "/members",
     icon: Users,
+  },
+  {
+    name: "Nuevo Miembro",
+    href: "/members/new",
+    icon: UserPlus,
+  },
+  {
+    name: "Tipos de Membresía",
+    href: "/membership-types",
+    icon: CreditCard,
   },
 ]
 

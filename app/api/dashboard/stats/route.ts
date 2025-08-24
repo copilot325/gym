@@ -15,6 +15,9 @@ export async function GET(request: NextRequest) {
       if (!session.user.emailVerified) {
         return NextResponse.json({ error: 'Cuenta no verificada' }, { status: 403 })
       }
+      if (!session.user.email.endsWith('@bodystrong.com')) {
+        return NextResponse.json({ error: 'Dominio de email no permitido' }, { status: 403 })
+      }
 
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)

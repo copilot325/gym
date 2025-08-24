@@ -77,6 +77,7 @@ export default function MembershipTypesPage() {
       if (field === 'name') body.name = value
       if (field === 'daysGranted') body.daysGranted = Number(value)
       if (field === 'price') body.price = Number(value)
+      if (field === 'description') body.description = value
       const res = await fetch(`/api/membership-types/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
       if (!res.ok) throw new Error('Error guardando')
       toast.success('Guardado')
@@ -140,6 +141,7 @@ export default function MembershipTypesPage() {
                         <TableHead>Días</TableHead>
                         <TableHead>Precio</TableHead>
                         <TableHead>Membresías</TableHead>
+                        <TableHead>Descripción</TableHead>
                         <TableHead>Estado</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
@@ -171,6 +173,14 @@ export default function MembershipTypesPage() {
                             />
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">{t._count?.userMemberships ?? 0}</TableCell>
+                          <TableCell>
+                            <input
+                              defaultValue={t.description || ''}
+                              placeholder="Descripción"
+                              className="bg-transparent border border-transparent hover:border-muted rounded px-2 py-1 text-sm w-40"
+                              onBlur={(e)=> e.target.value !== (t.description || '') && updateField(t.id,'description', e.target.value)}
+                            />
+                          </TableCell>
                           <TableCell>{t.isActive ? <Badge>Activo</Badge> : <Badge variant="secondary">Inactivo</Badge>}</TableCell>
                           <TableCell className="space-x-2 text-right">
                             <Button variant="outline" size="sm" onClick={()=>toggle(t.id,t.isActive)}>

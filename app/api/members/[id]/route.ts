@@ -36,20 +36,10 @@ export async function GET(
       where: { id: params.id },
       include: {
         memberships: {
-          include: {
-            membershipType: true,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
+          include: { membershipType: true },
+          orderBy: { createdAt: "desc" },
         },
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+        creator: { select: { id: true, name: true, email: true } },
       },
     })
 
@@ -62,15 +52,12 @@ export async function GET(
 
     // Calcular estado actual
     const latestMembership = member.memberships[0]
-    const isActive = latestMembership && 
-                    latestMembership.isActive && 
-                    new Date(latestMembership.expirationDate) > new Date()
-
-    const memberWithStatus = {
-      ...member,
-      status: isActive ? "ACTIVE" : "INACTIVE",
-      latestMembership,
+    let status: 'ACTIVE' | 'INACTIVE' | 'NO_MEMBERSHIP' = 'NO_MEMBERSHIP'
+    if (latestMembership) {
+      const active = latestMembership.isActive && new Date(latestMembership.expirationDate) > new Date()
+      status = active ? 'ACTIVE' : 'INACTIVE'
     }
+    const memberWithStatus = { ...member, status, latestMembership }
 
     return NextResponse.json(memberWithStatus)
   } catch (error) {

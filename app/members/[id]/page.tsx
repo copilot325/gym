@@ -32,7 +32,7 @@ interface Member {
   phone: string
   firstEnrollmentDate: string
   lastRenewalDate?: string | null
-  status: "ACTIVE" | "INACTIVE"
+  status: 'ACTIVE' | 'INACTIVE' | 'NO_MEMBERSHIP'
   latestMembership?: any
   memberships: any[]
 }
@@ -351,10 +351,22 @@ export default function MemberProfilePage({ params }: { params: { id: string } }
                   <p className="font-medium">{formatDate(member.firstEnrollmentDate)}</p>
                 </div>
               </div>
+              {member.lastRenewalDate && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Última Renovación</p>
+                  <p className="font-medium">{formatDate(member.lastRenewalDate)}</p>
+                </div>
+              )}
+              {member.latestMembership && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Vence</p>
+                  <p className="font-medium">{formatDate(member.latestMembership.expirationDate)}</p>
+                </div>
+              )}
               <div>
                 <p className="text-sm text-muted-foreground">Estado</p>
-                <Badge variant={member.status === "ACTIVE" ? "default" : "destructive"}>
-                  {member.status === "ACTIVE" ? "Activo" : "Inactivo"}
+                <Badge variant={member.status === 'ACTIVE' ? 'default' : member.status === 'INACTIVE' ? 'destructive' : 'secondary'}>
+                  {member.status === 'ACTIVE' ? 'Activo' : member.status === 'INACTIVE' ? 'Inactivo' : 'Sin Membresía'}
                 </Badge>
               </div>
             </div>

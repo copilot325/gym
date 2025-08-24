@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, Eye } from "lucide-react"
 import type { Member } from "@/lib/types"
-import { dataService } from "@/lib/data-service"
 
 interface RecentMembersProps {
   members: Member[]

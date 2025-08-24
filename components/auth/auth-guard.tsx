@@ -21,21 +21,27 @@ export function AuthGuard({ children, redirectTo = "/login" }: AuthGuardProps) {
     const checkAuth = async () => {
       try {
         const session = await getSession()
+        
         if (session?.data) {
+          // Usuario autenticado, actualizar store
           authActions.setSession({
             user: session.data.user,
             expiresAt: session.data.session.expiresAt,
           })
+
+          // Enforce manual approval: if emailVerified false redirect to notice
           if (!session.data.user.emailVerified) {
             router.push("/login?pendingApproval=1")
             return
           }
         } else {
+          // No hay sesión válida, limpiar store y redirigir
           authActions.clearSession()
           router.push(redirectTo)
           return
         }
-      } catch (e) {
+      } catch (error) {
+        console.error("Error checking authentication:", error)
         authActions.clearSession()
         router.push(redirectTo)
         return

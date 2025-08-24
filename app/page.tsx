@@ -7,23 +7,25 @@ import { StatsCards } from "@/components/dashboard/stats-cards"
 import { MembershipChart } from "@/components/dashboard/membership-chart"
 import { EnrollmentsBarChart } from "@/components/dashboard/revenue-chart"
 import { RecentMembers } from "@/components/dashboard/recent-members"
-import { dataService } from "@/lib/data-service"
 import type { DashboardStats, Member } from "@/lib/types"
 
 export default function HomePage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [members, setMembers] = useState<Member[]>([])
+  const [recentMembers, setRecentMembers] = useState<Member[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        const [dashboardStats, membersResp] = await Promise.all([
-          dataService.getDashboardStats(),
-          dataService.getMembers({ limit: 5, page: 1 }),
-        ])
-        setStats(dashboardStats)
-        setMembers(membersResp.members)
+        setIsLoading(true)
+        
+        // Cargar estadísticas del dashboard
+        const statsResponse = await fetch('/api/dashboard/stats')
+        if (!statsResponse.ok) throw new Error('Error loading dashboard stats')
+        const dashboardData = await statsResponse.json()
+        
+        setStats(dashboardData)
+        setRecentMembers(dashboardData.recentMembers || [])
       } catch (error) {
         console.error("Error loading dashboard data:", error)
       } finally {
@@ -84,7 +86,7 @@ export default function HomePage() {
             </div>
 
             {/* Recent Members */}
-            <RecentMembers members={members} />
+            <RecentMembers members={recentMembers} />
           </div>
         </div>
       </AppLayout>

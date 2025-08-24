@@ -87,7 +87,13 @@ export async function GET(request: NextRequest) {
       ? membersWithStatus.filter((m: any) => m.status === 'NO_MEMBERSHIP')
       : membersWithStatus
 
-  return NextResponse.json({ members: filteredMembers, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } })
+    return NextResponse.json({ 
+      members: filteredMembers, 
+      total, 
+      page, 
+      limit, 
+      totalPages: Math.ceil(total / limit) 
+    })
   } catch (error) {
     console.error("Error fetching members:", error)
     return NextResponse.json(

@@ -6,6 +6,8 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useStore } from "@nanostores/react"
+import { AuthGuard } from "@/components/auth/auth-guard"
+import { AppLayout } from "@/components/layout/app-layout"
 import { isAuthenticatedStore } from "@/lib/stores/auth-store"
 import { membershipTypesStore, dataActions } from "@/lib/stores/data-store"
 import { Button } from "@/components/ui/button"
@@ -117,7 +119,9 @@ export default function NewMemberPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <AuthGuard>
+      <AppLayout>
+        <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center gap-4">
         <Button
           variant="outline"
@@ -266,6 +270,8 @@ export default function NewMemberPage() {
           </form>
         </CardContent>
       </Card>
-    </div>
+        </div>
+      </AppLayout>
+    </AuthGuard>
   )
 }

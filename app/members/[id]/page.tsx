@@ -97,7 +97,8 @@ export default function MemberProfilePage({ params }: { params: { id: string } }
       try {
         const response = await fetch("/api/membership-types")
         if (response.ok) {
-          const types = await response.json()
+          const json = await response.json()
+          const types = Array.isArray(json) ? json : json.items || []
           dataActions.setMembershipTypes(types)
         }
       } catch (error) {

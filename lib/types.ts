@@ -20,7 +20,7 @@ export interface Member {
   updatedAt: Date
   creatorId: string
   memberships: UserMembership[]
-  status?: "ACTIVE" | "INACTIVE" // Campo computado
+  status?: "ACTIVE" | "INACTIVE" | "NO_MEMBERSHIP" // Campo computado
 }
 
 export interface MembershipType {

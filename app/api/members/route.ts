@@ -32,9 +32,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get("search")
     const status = searchParams.get("status")
-    const page = parseInt(searchParams.get("page") || "1")
-    const limit = parseInt(searchParams.get("limit") || "10")
-    const skip = (page - 1) * limit
+  const page = parseInt(searchParams.get("page") || "1")
+  const limit = parseInt(searchParams.get("limit") || "10")
 
     // Construir filtros
     const where: any = {}
@@ -47,52 +46,44 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-  const members = await prisma.member.findMany({
+    // Recuperar TODOS los miembros que cumplen búsqueda (se optimiza posteriormente con paginación real por estado)
+    // Justificación: el estado es computado y depende de la membresía más reciente + fecha actual.
+    const membersAll = await prisma.member.findMany({
       where,
       include: {
         memberships: {
-          include: {
-            membershipType: true,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
+          include: { membershipType: true },
+          orderBy: { createdAt: "desc" },
+          take: 1, // Sólo necesitamos la última para el estado
         },
       },
-      skip,
-      take: limit,
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
     })
 
-    const total = await prisma.member.count({ where })
-
     // Calcular estado de cada miembro
-  const membersWithStatus = members.map((member: any) => {
+    const membersWithStatus = membersAll.map((member: any) => {
       const latestMembership = member.memberships[0]
-      if (!latestMembership) {
-        return { ...member, status: 'NO_MEMBERSHIP' as const, latestMembership: null }
-      }
+      if (!latestMembership) return { ...member, status: 'NO_MEMBERSHIP' as const, latestMembership: null }
       const isActive = latestMembership.isActive && new Date(latestMembership.expirationDate) > new Date()
       return { ...member, status: isActive ? 'ACTIVE' : 'INACTIVE', latestMembership }
     })
 
-    // Filtrar por estado si se especifica
-    const filteredMembers = status === 'ACTIVE'
-      ? membersWithStatus.filter((m: any) => m.status === 'ACTIVE')
-      : status === 'INACTIVE'
-      ? membersWithStatus.filter((m: any) => m.status === 'INACTIVE')
-      : status === 'NO_MEMBERSHIP'
-      ? membersWithStatus.filter((m: any) => m.status === 'NO_MEMBERSHIP')
-      : membersWithStatus
+    let filtered = membersWithStatus
+    if (status === 'ACTIVE') filtered = filtered.filter((m: any) => m.status === 'ACTIVE')
+    else if (status === 'INACTIVE') filtered = filtered.filter((m: any) => m.status === 'INACTIVE')
+    else if (status === 'NO_MEMBERSHIP') filtered = filtered.filter((m: any) => m.status === 'NO_MEMBERSHIP')
 
-    return NextResponse.json({ 
-      members: filteredMembers, 
-      total, 
-      page, 
-      limit, 
-      totalPages: Math.ceil(total / limit) 
+    const total = filtered.length
+    const totalPages = Math.max(1, Math.ceil(total / limit))
+    const start = (page - 1) * limit
+    const pageItems = filtered.slice(start, start + limit)
+
+    return NextResponse.json({
+      members: pageItems,
+      total,
+      page,
+      limit,
+      totalPages,
     })
   } catch (error) {
     console.error("Error fetching members:", error)
@@ -193,11 +184,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
     console.error("Error creating member:", error)
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
   }
 }

@@ -20,6 +20,7 @@ const formSchema = z.object({
 
 export default function MembershipTypesPage() {
   const [types, setTypes] = useState<any[]>([])
+  const [stats, setStats] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ name: '', daysGranted: '', price: '', description: '' })
   const [submitting, setSubmitting] = useState(false)
@@ -27,9 +28,11 @@ export default function MembershipTypesPage() {
   const load = async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/membership-types')
+  const res = await fetch('/api/membership-types?all=1')
       if (!res.ok) throw new Error('Error cargando tipos')
-      setTypes(await res.json())
+  const json = await res.json()
+  setTypes(json.items || [])
+  setStats(json.stats)
     } catch (e:any) {
       toast.error(e.message || 'Error')
     } finally { setLoading(false) }
@@ -67,6 +70,30 @@ export default function MembershipTypesPage() {
     } catch(e:any){ toast.error(e.message) }
   }
 
+  const updateField = async (id: string, field: string, value: string) => {
+    try {
+      if (!value.trim()) return
+      const body: any = {}
+      if (field === 'name') body.name = value
+      if (field === 'daysGranted') body.daysGranted = Number(value)
+      if (field === 'price') body.price = Number(value)
+      const res = await fetch(`/api/membership-types/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) })
+      if (!res.ok) throw new Error('Error guardando')
+      toast.success('Guardado')
+      load()
+    } catch (e:any) { toast.error(e.message) }
+  }
+
+  const remove = async (id: string) => {
+    if (!confirm('¿Eliminar tipo? Solo se permite si no tiene membresías asociadas.')) return
+    try {
+      const res = await fetch(`/api/membership-types/${id}`, { method: 'DELETE' })
+      if (!res.ok) { const er = await res.json().catch(()=>({})); throw new Error(er.error || 'Error eliminando') }
+      toast.success('Eliminado')
+      load()
+    } catch (e:any) { toast.error(e.message) }
+  }
+
   return (
     <AuthGuard>
       <AppLayout>
@@ -93,9 +120,18 @@ export default function MembershipTypesPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Tipos de Membresía</CardTitle>
-                <CardDescription>Listado actual</CardDescription>
+                <CardDescription>Listado actual (activos e inactivos)</CardDescription>
               </CardHeader>
               <CardContent>
+                {stats && (
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4 text-sm">
+                    <div className="p-2 rounded border"><span className="font-semibold">Total:</span> {stats.total}</div>
+                    <div className="p-2 rounded border"><span className="font-semibold">Activos:</span> {stats.active}</div>
+                    <div className="p-2 rounded border"><span className="font-semibold">Inactivos:</span> {stats.inactive}</div>
+                    <div className="p-2 rounded border"><span className="font-semibold">Promedio Q:</span> {stats.avgPrice}</div>
+                    <div className="p-2 rounded border col-span-2 md:col-span-1"><span className="font-semibold">Rango Q:</span> {stats.minPrice} - {stats.maxPrice}</div>
+                  </div>
+                )}
                 {loading ? <p>Cargando...</p> : (
                   <Table>
                     <TableHeader>
@@ -103,21 +139,44 @@ export default function MembershipTypesPage() {
                         <TableHead>Nombre</TableHead>
                         <TableHead>Días</TableHead>
                         <TableHead>Precio</TableHead>
+                        <TableHead>Membresías</TableHead>
                         <TableHead>Estado</TableHead>
-                        <TableHead></TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {types.map(t => (
-                        <TableRow key={t.id}>
-                          <TableCell>{t.name}</TableCell>
-                          <TableCell>{t.daysGranted}</TableCell>
-                          <TableCell>{t.price ?? 0}</TableCell>
-                          <TableCell>{t.isActive ? <Badge>Activo</Badge> : <Badge variant="secondary">Inactivo</Badge>}</TableCell>
+                        <TableRow key={t.id} className={!t.isActive ? 'opacity-70' : ''}>
                           <TableCell>
+                            <input
+                              defaultValue={t.name}
+                              className="bg-transparent border border-transparent hover:border-muted rounded px-2 py-1 text-sm w-28"
+                              onBlur={(e)=> e.target.value !== t.name && updateField(t.id,'name', e.target.value)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <input
+                              type="number"
+                              defaultValue={t.daysGranted}
+                              className="bg-transparent border border-transparent hover:border-muted rounded px-2 py-1 text-sm w-20"
+                              onBlur={(e)=> Number(e.target.value) !== t.daysGranted && updateField(t.id,'daysGranted', e.target.value)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <input
+                              type="number"
+                              defaultValue={t.price ?? 0}
+                              className="bg-transparent border border-transparent hover:border-muted rounded px-2 py-1 text-sm w-24"
+                              onBlur={(e)=> Number(e.target.value) !== (t.price ?? 0) && updateField(t.id,'price', e.target.value)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{t._count?.userMemberships ?? 0}</TableCell>
+                          <TableCell>{t.isActive ? <Badge>Activo</Badge> : <Badge variant="secondary">Inactivo</Badge>}</TableCell>
+                          <TableCell className="space-x-2 text-right">
                             <Button variant="outline" size="sm" onClick={()=>toggle(t.id,t.isActive)}>
                               {t.isActive? 'Desactivar':'Activar'}
                             </Button>
+                            <Button variant="destructive" size="sm" onClick={()=>remove(t.id)} disabled={(t._count?.userMemberships ?? 0) > 0}>Eliminar</Button>
                           </TableCell>
                         </TableRow>
                       ))}

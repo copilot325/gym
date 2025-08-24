@@ -6,33 +6,34 @@ import { z } from "zod"
 // GET /api/membership-types - Obtener todos los tipos de membresía
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth.api.getSession({
-      headers: request.headers,
-    })
+    const session = await auth.api.getSession({ headers: request.headers })
+    if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    if (!session.user.emailVerified) return NextResponse.json({ error: 'Cuenta no verificada' }, { status: 403 })
 
-    if (!session) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-    }
-    if (!session.user.emailVerified) {
-      return NextResponse.json({ error: 'Cuenta no verificada' }, { status: 403 })
-    }
+    const { searchParams } = new URL(request.url)
+    const includeInactive = searchParams.get('all') === '1' || searchParams.get('includeInactive') === '1'
 
     const membershipTypes = await prisma.membershipType.findMany({
-      where: {
-        isActive: true,
-      },
-      orderBy: {
-        daysGranted: "asc",
-      },
+      where: includeInactive ? {} : { isActive: true },
+      orderBy: { daysGranted: 'asc' },
+      include: { _count: { select: { userMemberships: true } } },
     })
 
-    return NextResponse.json(membershipTypes)
+    // Calcular estadísticas agregadas (para página de administración)
+    type MType = typeof membershipTypes[number]
+    const stats = {
+      total: membershipTypes.length,
+      active: membershipTypes.filter((t: MType) => t.isActive).length,
+      inactive: membershipTypes.filter((t: MType) => !t.isActive).length,
+      avgPrice: Number((membershipTypes.reduce((acc: number, t: MType) => acc + (t.price ?? 0), 0) / (membershipTypes.length || 1)).toFixed(2)),
+      minPrice: membershipTypes.length ? Math.min(...membershipTypes.map((t: MType) => t.price ?? 0)) : 0,
+      maxPrice: membershipTypes.length ? Math.max(...membershipTypes.map((t: MType) => t.price ?? 0)) : 0,
+    }
+
+    return NextResponse.json({ items: membershipTypes, stats })
   } catch (error) {
-    console.error("Error fetching membership types:", error)
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    )
+    console.error('Error fetching membership types:', error)
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
 
@@ -47,14 +48,14 @@ const membershipTypeSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: request.headers })
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  if (!session.user.emailVerified) return NextResponse.json({ error: 'Cuenta no verificada' }, { status: 403 })
+    if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    if (!session.user.emailVerified) return NextResponse.json({ error: 'Cuenta no verificada' }, { status: 403 })
 
     const body = await request.json()
     const data = membershipTypeSchema.parse(body)
 
-    const exists = await prisma.membershipType.findUnique({ where: { name: data.name } })
-    if (exists) return NextResponse.json({ error: "Nombre ya existe" }, { status: 400 })
+    const exists = await prisma.membershipType.findUnique({ where: { name: data.name.toUpperCase() } })
+    if (exists) return NextResponse.json({ error: 'Nombre ya existe' }, { status: 400 })
 
     const created = await prisma.membershipType.create({
       data: {
@@ -67,26 +68,27 @@ export async function POST(request: NextRequest) {
     })
     return NextResponse.json(created, { status: 201 })
   } catch (e: any) {
-    if (e instanceof z.ZodError) return NextResponse.json({ error: "Datos inválidos", details: e.errors }, { status: 400 })
-    return NextResponse.json({ error: "Error interno" }, { status: 500 })
+    if (e instanceof z.ZodError) return NextResponse.json({ error: 'Datos inválidos', details: e.errors }, { status: 400 })
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
 
 // PATCH /api/membership-types?id=ID - desactivar/activar
+// PATCH simple para activar/desactivar (compatibilidad). Para edición completa usar /api/membership-types/[id]
 export async function PATCH(request: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: request.headers })
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
-  if (!session.user.emailVerified) return NextResponse.json({ error: 'Cuenta no verificada' }, { status: 403 })
+    if (!session) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    if (!session.user.emailVerified) return NextResponse.json({ error: 'Cuenta no verificada' }, { status: 403 })
     const { searchParams } = new URL(request.url)
-    const id = searchParams.get("id")
-    if (!id) return NextResponse.json({ error: "Falta id" }, { status: 400 })
+    const id = searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'Falta id' }, { status: 400 })
     const body = await request.json().catch(() => ({}))
     const isActive = body?.isActive as boolean | undefined
-    if (typeof isActive !== "boolean") return NextResponse.json({ error: "Falta isActive" }, { status: 400 })
+    if (typeof isActive !== 'boolean') return NextResponse.json({ error: 'Falta isActive' }, { status: 400 })
     const updated = await prisma.membershipType.update({ where: { id }, data: { isActive } })
     return NextResponse.json(updated)
   } catch (e) {
-    return NextResponse.json({ error: "Error interno" }, { status: 500 })
+    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }

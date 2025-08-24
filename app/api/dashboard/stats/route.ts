@@ -24,12 +24,8 @@ export async function GET(request: NextRequest) {
     const members = await prisma.member.findMany({
       include: {
         memberships: {
-          include: {
-            membershipType: true,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
+          include: { membershipType: true },
+          orderBy: { createdAt: 'desc' },
           take: 1,
         },
       },
@@ -42,7 +38,7 @@ export async function GET(request: NextRequest) {
 
   members.forEach((member: any) => {
       const latestMembership = member.memberships[0]
-      if (!latestMembership) {
+      if (!latestMembership) { // Nunca ha tenido membresía
         withoutMembershipMembers++
         return
       }
